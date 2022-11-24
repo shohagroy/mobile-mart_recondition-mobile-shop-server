@@ -100,12 +100,16 @@ const run = async () => {
       res.send(result);
     });
 
-    // app.get("/appointment", async (req, res) => {
-    //   const id = req.query.id;
-    //   const query = { _id: ObjectId(id) };
-    //   const result = await bookingCollection.findOne(query);
-    //   res.send(result);
-    // });
+    app.get("/products", jwtVerify, userVerify, isSeller, async (req, res) => {
+      const userEmail = req.query.email;
+
+      console.log(userEmail);
+      const query = { sellerEmail: userEmail };
+      const result = await productsCollection.find(query).toArray();
+      console.log(result);
+      res.send(result);
+    });
+
     // app.get("/appointments", jwtVerify, async (req, res) => {
     //   const userEmail = req.query.email;
     //   const decoded = req.decoded.email;
