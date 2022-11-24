@@ -93,12 +93,71 @@ const run = async () => {
     });
 
     app.get("/users", jwtVerify, userVerify, isAdmin, async (req, res) => {
-      const query = {};
+      const userRole = req.query.role;
+
+      let query;
+
+      if (userRole) {
+        query = { role: userRole };
+      } else {
+        query = {};
+      }
+
       const result = await usersCollection.find(query).toArray();
 
       //   console.log(result);
       res.send(result);
     });
+
+    app.put(
+      "/users-verify",
+      jwtVerify,
+      userVerify,
+      isAdmin,
+      async (req, res) => {
+        const userId = req.query.id;
+
+        const filter = { _id: ObjectId(userId) };
+        const options = { upsert: true };
+
+        const updateDoc = {
+          $set: {
+            userStatus: "verify",
+          },
+        };
+        const result = await usersCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        console.log(result);
+        res.send(result);
+      }
+    );
+    app.put(
+      "/users-unverify",
+      jwtVerify,
+      userVerify,
+      isAdmin,
+      async (req, res) => {
+        const userId = req.query.id;
+
+        const filter = { _id: ObjectId(userId) };
+        const options = { upsert: true };
+
+        const updateDoc = {
+          $set: {
+            userStatus: "",
+          },
+        };
+        const result = await usersCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(result);
+      }
+    );
 
     app.delete("/users", jwtVerify, userVerify, isAdmin, async (req, res) => {
       const email = req.query.deleteEmail;
@@ -128,7 +187,6 @@ const run = async () => {
       async (req, res) => {
         const query = {};
         const result = await productsCollection.find(query).toArray();
-        console.log(result);
         res.send(result);
       }
     );
