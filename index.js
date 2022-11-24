@@ -70,6 +70,25 @@ const run = async () => {
       }
     };
 
+    app.get("/chekAdmin/:email", jwtVerify, async (req, res) => {
+      const userEmail = req.params.email;
+      const decoded = req.decoded.email;
+
+      if (userEmail !== decoded) {
+        return res.status(403).send({ massege: "unauthorized access" });
+      } else {
+        const query = { email: userEmail };
+        const user = await usersCollection.find(query).toArray();
+
+        if (user[0]?.role !== "admin") {
+          return res.status(403).send({ massege: "unauthorized access" });
+        } else {
+          console.log("isAdmin");
+          res.send({ isAdmin: user[0]?.role === "admin" });
+        }
+      }
+    });
+
     const isSeller = async (req, res, next) => {
       const sellerEmail = req.query.email;
 
