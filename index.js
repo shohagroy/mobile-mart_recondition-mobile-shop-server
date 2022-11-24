@@ -94,8 +94,23 @@ const run = async () => {
     app.get("/users", jwtVerify, userVerify, isAdmin, async (req, res) => {
       const query = {};
       const result = await usersCollection.find(query).toArray();
-      console.log(result);
+
+      //   console.log(result);
       res.send(result);
+    });
+
+    app.delete("/users", jwtVerify, userVerify, isAdmin, async (req, res) => {
+      const email = req.query.deleteEmail;
+
+      console.log(email);
+      const id = req.query.id;
+      const query = { _id: ObjectId(id) };
+      const user = await usersCollection.deleteOne(query);
+      const product = await productsCollection.deleteMany(query);
+      if (user.deletedCount > 0) {
+        console.log(product);
+        res.send(user);
+      }
     });
 
     app.post("/products", jwtVerify, userVerify, isSeller, async (req, res) => {
