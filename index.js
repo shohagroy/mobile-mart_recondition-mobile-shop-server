@@ -31,34 +31,10 @@ const userVerify = (req, res, next) => {
   const userEmail = req.query.email;
   const decoded = req.decoded.email;
 
-  console.log(userEmail, decoded);
-
   if (userEmail !== decoded) {
     return res.status(401).send({ massege: "unauthorized access" });
   } else {
     next();
-  }
-};
-
-const isAdmin = async (req, res, next) => {
-  const adminEmail = req.query.email;
-  const filter = { email: adminEmail };
-  const user = await usersCollection.find(filter).toArray();
-  if (user[0]?.role === "admin") {
-    next();
-  } else {
-    return res.status(401).send({ massege: "unauthorized access" });
-  }
-};
-
-const isSeller = async (req, res, next) => {
-  const sellerEmail = req.query.email;
-  const filter = { email: sellerEmail };
-  const user = await usersCollection.find(filter).toArray();
-  if (user[0]?.role === "admin" || "seller") {
-    next();
-  } else {
-    return res.status(401).send({ massege: "unauthorized access" });
   }
 };
 
@@ -82,6 +58,30 @@ const run = async () => {
     // const paymentCollection = client.db("mobile_mart").collection("payments");
     // create JWT
 
+    const isAdmin = async (req, res, next) => {
+      const adminEmail = req.query.email;
+      const filter = { email: adminEmail };
+      const user = await usersCollection.find(filter).toArray();
+      if (user[0]?.role === "admin") {
+        next();
+      } else {
+        return res.status(401).send({ massege: "unauthorized access" });
+      }
+    };
+
+    const isSeller = async (req, res, next) => {
+      const sellerEmail = req.query.email;
+
+      const query = { email: sellerEmail };
+      const sellerInfo = await usersCollection.find(query).toArray();
+
+      if (sellerInfo[0]?.role === "admin" || "seller") {
+        next();
+      } else {
+        return res.status(401).send({ massege: "unauthorized access" });
+      }
+    };
+
     app.post("/jwt", async (req, res) => {
       const userInfo = req.body;
       const userEmail = { email: userInfo.email };
@@ -89,6 +89,15 @@ const run = async () => {
       const jwtToken = jwt.sign(userEmail, secret, { expiresIn: "5h" });
       const result = await usersCollection.insertOne(userInfo);
       res.send({ jwtToken });
+    });
+
+    app.post("/products", jwtVerify, userVerify, isSeller, async (req, res) => {
+      const productInfo = req.body;
+
+      const result = await productsCollection.insertOne(productInfo);
+      console.log(result);
+
+      res.send(result);
     });
 
     // app.get("/appointment", async (req, res) => {
