@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const port = process.env.POST || 5000;
 
@@ -103,11 +103,20 @@ const run = async () => {
     app.get("/products", jwtVerify, userVerify, isSeller, async (req, res) => {
       const userEmail = req.query.email;
 
-      console.log(userEmail);
       const query = { sellerEmail: userEmail };
       const result = await productsCollection.find(query).toArray();
-      console.log(result);
       res.send(result);
+    });
+
+    app.delete("/products", async (req, res) => {
+      const id = req.query.id;
+
+      const query = { _id: ObjectId(id) };
+      const result = await productsCollection.deleteOne(query);
+      if (result.deletedCount === 1) {
+        console.log(result);
+        res.send(result);
+      }
     });
 
     // app.get("/appointments", jwtVerify, async (req, res) => {
@@ -299,14 +308,7 @@ const run = async () => {
     //     res.send(result);
     //   }
     // });
-    // app.delete("/booking/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: ObjectId(id) };
-    //   const result = await bookingCollection.deleteOne(query);
-    //   if (result.deletedCount === 1) {
-    //     res.send(result);
-    //   }
-    // });
+
     // app.get("/specialist", jwtVerify, isAdmin, async (req, res) => {
     //   const userEmail = req.query.email;
     //   const decoded = req.decoded.email;
