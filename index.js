@@ -134,6 +134,7 @@ const run = async () => {
         res.send(result);
       }
     );
+
     app.put(
       "/users-unverify",
       jwtVerify,
@@ -148,6 +149,46 @@ const run = async () => {
         const updateDoc = {
           $set: {
             userStatus: "",
+          },
+        };
+        const result = await usersCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(result);
+      }
+    );
+
+    app.put("/make-admin", jwtVerify, userVerify, isAdmin, async (req, res) => {
+      const userId = req.query.id;
+      const filter = { _id: ObjectId(userId) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
+
+    app.put(
+      "/remove-admin",
+      jwtVerify,
+      userVerify,
+      isAdmin,
+      async (req, res) => {
+        const userId = req.query.id;
+        const filter = { _id: ObjectId(userId) };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            role: "customer",
           },
         };
         const result = await usersCollection.updateOne(
