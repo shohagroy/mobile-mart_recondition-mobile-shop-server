@@ -91,6 +91,13 @@ const run = async () => {
       res.send({ jwtToken });
     });
 
+    app.get("/users", jwtVerify, userVerify, isAdmin, async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).toArray();
+      console.log(result);
+      res.send(result);
+    });
+
     app.post("/products", jwtVerify, userVerify, isSeller, async (req, res) => {
       const productInfo = req.body;
 
