@@ -53,9 +53,8 @@ const run = async () => {
   try {
     const usersCollection = client.db("mobile_mart").collection("users");
     const productsCollection = client.db("mobile_mart").collection("products");
-
-    // const bookingCollection = client.db("mobile_mart").collection("booking");
-    // const doctorsCollection = client.db("mobile_mart").collection("doctors");
+    const categorysCollection = client.db("mobile_mart").collection("category");
+    const cartItemsCollection = client.db("mobile_mart").collection("carts");
     // const paymentCollection = client.db("mobile_mart").collection("payments");
     // create JWT
 
@@ -83,7 +82,6 @@ const run = async () => {
         if (user[0]?.role !== "admin") {
           return res.status(403).send({ massege: "unauthorized access" });
         } else {
-          console.log("isAdmin");
           res.send({ isAdmin: user[0]?.role === "admin" });
         }
       }
@@ -92,8 +90,6 @@ const run = async () => {
     app.get("/chekSeller/:email", jwtVerify, async (req, res) => {
       const userEmail = req.params.email;
       const decoded = req.decoded.email;
-
-      console.log(userEmail, decoded);
 
       if (userEmail !== decoded) {
         return res.status(403).send({ massege: "unauthorized access" });
@@ -104,7 +100,6 @@ const run = async () => {
         if (user[0]?.role !== "seller") {
           return res.status(403).send({ massege: "unauthorized access" });
         } else {
-          console.log("isSeller");
           res.send({ isSeller: user[0]?.role === "seller" });
         }
       }
@@ -122,7 +117,6 @@ const run = async () => {
         if (user[0]?.role !== "admin") {
           return res.status(403).send({ massege: "unauthorized access" });
         } else {
-          console.log("isAdmin");
           res.send({ isAdmin: user[0]?.role === "admin" });
         }
       }
@@ -163,7 +157,6 @@ const run = async () => {
 
       const result = await usersCollection.find(query).toArray();
 
-      //   console.log(result);
       res.send(result);
     });
 
@@ -188,7 +181,6 @@ const run = async () => {
           updateDoc,
           options
         );
-        console.log(result);
         res.send(result);
       }
     );
@@ -261,13 +253,11 @@ const run = async () => {
     app.delete("/users", jwtVerify, userVerify, isAdmin, async (req, res) => {
       const email = req.query.deleteEmail;
 
-      console.log(email);
       const id = req.query.id;
       const query = { _id: ObjectId(id) };
       const user = await usersCollection.deleteOne(query);
       const product = await productsCollection.deleteMany(query);
       if (user.deletedCount > 0) {
-        console.log(product);
         res.send(user);
       }
     });
@@ -304,9 +294,58 @@ const run = async () => {
       const query = { _id: ObjectId(id) };
       const result = await productsCollection.deleteOne(query);
       if (result.deletedCount === 1) {
-        console.log(result);
         res.send(result);
       }
+    });
+
+    app.get("/products-categorys", async (req, res) => {
+      const query = {};
+      const categorys = await categorysCollection.find(query).toArray();
+      const products = await productsCollection.find(query).toArray();
+
+      const result = categorys.map((category) => {
+        const quentaty = products.filter(
+          (res) => res.category === category.category
+        );
+        return quentaty;
+      });
+
+      res.send({ result, categorys });
+    });
+
+    app.post("/categorys", async (req, res) => {
+      const category = req.body;
+
+      const result = await categorysCollection.insertOne(category);
+
+      res.send(result);
+    });
+
+    app.get("/all-product", async (req, res) => {
+      const category = req.query.categorys;
+      const query = { category: category };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/add-carts", jwtVerify, async (req, res) => {
+      const cartItems = req.body;
+      const result = await cartItemsCollection.insertOne(cartItems);
+      res.send(result);
+    });
+
+    app.get("/add-carts", jwtVerify, async (req, res) => {
+      const query = {};
+      const result = await cartItemsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.delete("/add-carts", jwtVerify, async (req, res) => {
+      const id = req.query.id;
+      const query = { _id: ObjectId(id) };
+      const result = await cartItemsCollection.deleteOne(query);
+      console.log(result);
+      res.send(result);
     });
   } finally {
   }
