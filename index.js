@@ -55,6 +55,9 @@ const run = async () => {
     const productsCollection = client.db("mobile_mart").collection("products");
     const categorysCollection = client.db("mobile_mart").collection("category");
     const cartItemsCollection = client.db("mobile_mart").collection("carts");
+    // const boostedItemsCollection = client
+    //   .db("mobile_mart")
+    //   .collection("boost_product");
     // const paymentCollection = client.db("mobile_mart").collection("payments");
     // create JWT
 
@@ -313,11 +316,18 @@ const run = async () => {
       res.send({ result, categorys });
     });
 
-    app.post("/categorys", async (req, res) => {
+    app.post("/categorys", jwtVerify, isSeller, async (req, res) => {
       const category = req.body;
 
       const result = await categorysCollection.insertOne(category);
 
+      res.send(result);
+    });
+
+    app.get("/categorys", jwtVerify, isSeller, async (req, res) => {
+      const query = {};
+      const result = await categorysCollection.find(query).toArray();
+      console.log(result);
       res.send(result);
     });
 
@@ -327,11 +337,28 @@ const run = async () => {
       const result = await productsCollection.find(query).toArray();
       res.send(result);
     });
+    app.get("/display-products", async (req, res) => {
+      const query = {};
+      const result = await productsCollection
+        .find(query)
+        .limit(4)
+        .sort({ postDate: -1 })
+        .toArray();
+      res.send(result);
+    });
 
     app.post("/add-carts", jwtVerify, async (req, res) => {
       const cartItems = req.body;
-      const result = await cartItemsCollection.insertOne(cartItems);
-      res.send(result);
+      const newCartId = cartItems.cartId;
+      const query = { cartId: newCartId };
+      const alreadyAdded = await cartItemsCollection.findOne(query);
+
+      if (alreadyAdded === null || alreadyAdded.cartId !== newCartId) {
+        const result = await cartItemsCollection.insertOne(cartItems);
+        res.send(result);
+      } else {
+        res.send({ massege: "this items already added" });
+      }
     });
 
     app.get("/add-carts", jwtVerify, async (req, res) => {
@@ -354,6 +381,47 @@ const run = async () => {
       const query = { _id: ObjectId(id) };
       const result = await productsCollection.findOne(query);
       console.log(result);
+      res.send(result);
+    });
+
+    app.put("/add-advertise", jwtVerify, isSeller, async (req, res) => {
+      const boostedId = req.query.id;
+
+      const filter = { _id: ObjectId(boostedId) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          isBoosted: true,
+        },
+      };
+      const result = await productsCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
+    app.put("/remove-advertise", jwtVerify, isSeller, async (req, res) => {
+      const boostedId = req.query.id;
+
+      const filter = { _id: ObjectId(boostedId) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          isBoosted: false,
+        },
+      };
+      const result = await productsCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
+
+    app.get("/add-advertise", async (req, res) => {
+      const query = {};
+      const result = await productsCollection.find(query).toArray();
       res.send(result);
     });
   } finally {
