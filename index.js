@@ -3,7 +3,6 @@ const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const query = require("express/lib/middleware/query");
 
 const port = process.env.POST || 5000;
 
@@ -90,6 +89,24 @@ const run = async () => {
       }
     });
 
+    // app.get("/chekAdmin/:email", jwtVerify, async (req, res) => {
+    //   const userEmail = req.params.email;
+    //   const decoded = req.decoded.email;
+
+    //   if (userEmail !== decoded) {
+    //     return res.status(403).send({ massege: "unauthorized access" });
+    //   } else {
+    //     const query = { email: userEmail };
+    //     const user = await usersCollection.find(query).toArray();
+
+    //     if (user[0]?.role !== "admin") {
+    //       return res.status(403).send({ massege: "unauthorized access" });
+    //     } else {
+    //       res.send({ isAdmin: user[0]?.role === "admin" });
+    //     }
+    //   }
+    // });
+
     app.get("/chekSeller/:email", jwtVerify, async (req, res) => {
       const userEmail = req.params.email;
       const decoded = req.decoded.email;
@@ -104,23 +121,6 @@ const run = async () => {
           return res.status(403).send({ massege: "unauthorized access" });
         } else {
           res.send({ isSeller: user[0]?.role === "seller" });
-        }
-      }
-    });
-    app.get("/chekAdmin/:email", jwtVerify, async (req, res) => {
-      const userEmail = req.params.email;
-      const decoded = req.decoded.email;
-
-      if (userEmail !== decoded) {
-        return res.status(403).send({ massege: "unauthorized access" });
-      } else {
-        const query = { email: userEmail };
-        const user = await usersCollection.find(query).toArray();
-
-        if (user[0]?.role !== "admin") {
-          return res.status(403).send({ massege: "unauthorized access" });
-        } else {
-          res.send({ isAdmin: user[0]?.role === "admin" });
         }
       }
     });
@@ -305,40 +305,38 @@ const run = async () => {
       const query = {};
       const categorys = await categorysCollection.find(query).toArray();
       const products = await productsCollection.find(query).toArray();
-
-      const result = categorys.map((category) => {
-        const quentaty = products.filter(
-          (res) => res.category === category.category
-        );
-        return quentaty;
-      });
-
-      res.send({ result, categorys });
+      res.send(categorys);
     });
 
-    app.post("/categorys", jwtVerify, isSeller, async (req, res) => {
-      const category = req.body;
+    app.post(
+      "/categorys",
+      jwtVerify,
+      userVerify,
+      isSeller,
+      async (req, res) => {
+        const category = req.body;
 
-      const result = await categorysCollection.insertOne(category);
+        const result = await categorysCollection.insertOne(category);
 
-      res.send(result);
-    });
+        res.send(result);
+      }
+    );
 
-    app.get("/categorys", jwtVerify, isSeller, async (req, res) => {
+    app.get("/categorys", jwtVerify, userVerify, isSeller, async (req, res) => {
       const query = {};
       const result = await categorysCollection.find(query).toArray();
-      console.log(result);
       res.send(result);
     });
 
     app.get("/all-product", async (req, res) => {
       const category = req.query.categorys;
-      const query = { category: category };
+      const query = { category: category, isBooked: false };
       const result = await productsCollection.find(query).toArray();
       res.send(result);
     });
+
     app.get("/display-products", async (req, res) => {
-      const query = {};
+      const query = { isBooked: false };
       const result = await productsCollection
         .find(query)
         .limit(4)
@@ -347,7 +345,7 @@ const run = async () => {
       res.send(result);
     });
 
-    app.post("/add-carts", jwtVerify, async (req, res) => {
+    app.post("/add-carts", jwtVerify, userVerify, async (req, res) => {
       const cartItems = req.body;
       const newCartId = cartItems.cartId;
       const query = { cartId: newCartId };
@@ -361,37 +359,111 @@ const run = async () => {
       }
     });
 
-    app.get("/add-carts", jwtVerify, async (req, res) => {
-      const query = {};
+    app.get("/add-carts", jwtVerify, userVerify, async (req, res) => {
+      const userEmail = req.query.email;
+      const query = { userEmail: userEmail };
       const result = await cartItemsCollection.find(query).toArray();
       res.send(result);
     });
 
-    app.delete("/add-carts", jwtVerify, async (req, res) => {
+    app.delete("/add-carts", jwtVerify, userVerify, async (req, res) => {
       const id = req.query.id;
       const query = { _id: ObjectId(id) };
       const result = await cartItemsCollection.deleteOne(query);
-      console.log(result);
       res.send(result);
     });
 
     app.get("/products-details/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: ObjectId(id) };
       const result = await productsCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.put(
+      "/add-advertise",
+      jwtVerify,
+      userVerify,
+      isSeller,
+      async (req, res) => {
+        const boostedId = req.query.id;
+
+        const filter = { _id: ObjectId(boostedId) };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            isBoosted: true,
+          },
+        };
+        const result = await productsCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(result);
+      }
+    );
+
+    app.put(
+      "/remove-advertise",
+      jwtVerify,
+      userVerify,
+      isSeller,
+      async (req, res) => {
+        const boostedId = req.query.id;
+
+        const filter = { _id: ObjectId(boostedId) };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            isBoosted: false,
+          },
+        };
+        const result = await productsCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(result);
+      }
+    );
+
+    app.get("/add-advertise", async (req, res) => {
+      const query = { isBoosted: true, isBooked: false };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.put("/add-booking", jwtVerify, userVerify, async (req, res) => {
+      const bookedId = req.query.id;
+      const userEmail = req.query.email;
+
+      const filter = { _id: ObjectId(bookedId) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          isBooked: true,
+          customerEmail: userEmail,
+        },
+      };
+      const result = await productsCollection.updateMany(
+        filter,
+        updateDoc,
+        options
+      );
       console.log(result);
       res.send(result);
     });
 
-    app.put("/add-advertise", jwtVerify, isSeller, async (req, res) => {
-      const boostedId = req.query.id;
+    app.put("/remove-booking", jwtVerify, userVerify, async (req, res) => {
+      const bookedId = req.query.id;
 
-      const filter = { _id: ObjectId(boostedId) };
+      const filter = { _id: ObjectId(bookedId) };
       const options = { upsert: true };
       const updateDoc = {
         $set: {
-          isBoosted: true,
+          isBooked: false,
+          customerEmail: "",
         },
       };
       const result = await productsCollection.updateOne(
@@ -399,29 +471,16 @@ const run = async () => {
         updateDoc,
         options
       );
-      res.send(result);
-    });
-    app.put("/remove-advertise", jwtVerify, isSeller, async (req, res) => {
-      const boostedId = req.query.id;
-
-      const filter = { _id: ObjectId(boostedId) };
-      const options = { upsert: true };
-      const updateDoc = {
-        $set: {
-          isBoosted: false,
-        },
-      };
-      const result = await productsCollection.updateOne(
-        filter,
-        updateDoc,
-        options
-      );
+      console.log(result);
       res.send(result);
     });
 
-    app.get("/add-advertise", async (req, res) => {
-      const query = {};
+    app.get("/booking-product", jwtVerify, userVerify, async (req, res) => {
+      const userEmail = req.query.email;
+
+      const query = { isBooked: true };
       const result = await productsCollection.find(query).toArray();
+      console.log(result);
       res.send(result);
     });
   } finally {
