@@ -347,6 +347,15 @@ const run = async () => {
       console.log(result);
       res.send(result);
     });
+
+    app.get("/products-details/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: ObjectId(id) };
+      const result = await productsCollection.findOne(query);
+      console.log(result);
+      res.send(result);
+    });
   } finally {
   }
 };
