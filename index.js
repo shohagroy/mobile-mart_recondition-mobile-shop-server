@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const port = process.env.POST || 5000;
 
@@ -54,10 +55,11 @@ const run = async () => {
     const productsCollection = client.db("mobile_mart").collection("products");
     const categorysCollection = client.db("mobile_mart").collection("category");
     const cartItemsCollection = client.db("mobile_mart").collection("carts");
+    const paymentCollection = client.db("mobile_mart").collection("payments");
+
     // const boostedItemsCollection = client
     //   .db("mobile_mart")
     //   .collection("boost_product");
-    // const paymentCollection = client.db("mobile_mart").collection("payments");
     // create JWT
 
     const isAdmin = async (req, res, next) => {
@@ -451,7 +453,6 @@ const run = async () => {
         updateDoc,
         options
       );
-      console.log(result);
       res.send(result);
     });
 
@@ -471,17 +472,72 @@ const run = async () => {
         updateDoc,
         options
       );
-      console.log(result);
       res.send(result);
     });
 
     app.get("/booking-product", jwtVerify, userVerify, async (req, res) => {
       const userEmail = req.query.email;
 
-      const query = { isBooked: true };
+      const query = { customerEmail: userEmail };
       const result = await productsCollection.find(query).toArray();
-      console.log(result);
       res.send(result);
+    });
+
+    app.get("/payment-product/:id", async (req, res) => {
+      const productId = req.params.id;
+
+      const query = { _id: ObjectId(productId) };
+      const result = await productsCollection.findOne(query);
+      res.send(result);
+    });
+
+    // payment
+    app.post(
+      "/create-payment-intent",
+      jwtVerify,
+      userVerify,
+      async (req, res) => {
+        const product = req.body;
+        const price = product.sellPrice;
+        const amount = price * 100;
+
+        const paymentIntent = await stripe.paymentIntents.create({
+          currency: "usd",
+          amount: amount,
+          payment_method_types: ["card"],
+        });
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      }
+    );
+
+    app.post("/payments", jwtVerify, userVerify, async (req, res) => {
+      const payments = req.body;
+
+      const id = payments.bookingId;
+      const query = { _id: ObjectId(id) };
+
+      const result = await paymentCollection.insertOne(payments);
+
+      if (result.insertedId) {
+        const options = { upsert: true };
+
+        const updateDoc = {
+          $set: {
+            paymentStatus: "PAID",
+          },
+        };
+        const bookingProduct = await productsCollection.updateOne(
+          query,
+          updateDoc,
+          options
+        );
+
+        const filter = { cartId: id };
+        const cartDelete = await cartItemsCollection.deleteOne(filter);
+        res.send(result);
+      }
     });
   } finally {
   }
