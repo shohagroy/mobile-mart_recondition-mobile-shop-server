@@ -315,17 +315,11 @@ const run = async () => {
       res.send(result);
     });
 
-    app.get(
-      "/all-products",
-      jwtVerify,
-      userVerify,
-      isAdmin,
-      async (req, res) => {
-        const query = {};
-        const result = await productsCollection.find(query).toArray();
-        res.send(result);
-      }
-    );
+    app.get("/all-products", jwtVerify, userVerify, async (req, res) => {
+      const query = {};
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
 
     app.get("/products", jwtVerify, userVerify, isSeller, async (req, res) => {
       const userEmail = req.query.email;
@@ -568,7 +562,8 @@ const run = async () => {
 
       const id = payments.bookingId;
       const paymentID = payments.transactionId;
-      const query = { _id: ObjectId(id) };
+
+      const query = { bookingId: id };
 
       const result = await paymentCollection.insertOne(payments);
 
@@ -581,8 +576,15 @@ const run = async () => {
             transactionId: paymentID,
           },
         };
-        const bookingProduct = await productsCollection.updateMany(
+        const bookingProduct = await bookingCollection.updateMany(
           query,
+          updateDoc,
+          options
+        );
+
+        const find = { _id: ObjectId(id) };
+        const product = await productsCollection.updateMany(
+          find,
           updateDoc,
           options
         );
