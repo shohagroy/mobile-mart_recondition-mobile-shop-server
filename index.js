@@ -56,6 +56,7 @@ const run = async () => {
     const categorysCollection = client.db("mobile_mart").collection("category");
     const cartItemsCollection = client.db("mobile_mart").collection("carts");
     const paymentCollection = client.db("mobile_mart").collection("payments");
+    const bookingCollection = client.db("mobile_mart").collection("booking");
 
     // const boostedItemsCollection = client
     //   .db("mobile_mart")
@@ -149,6 +150,14 @@ const run = async () => {
       res.send({ jwtToken });
     });
 
+    app.post("/jwtLogin", async (req, res) => {
+      const userInfo = req.body;
+      const userEmail = { email: userInfo.email };
+
+      const jwtToken = jwt.sign(userEmail, secret, { expiresIn: "5h" });
+      res.send({ jwtToken });
+    });
+
     app.get("/users", jwtVerify, userVerify, isAdmin, async (req, res) => {
       const userRole = req.query.role;
 
@@ -172,6 +181,7 @@ const run = async () => {
       isAdmin,
       async (req, res) => {
         const userId = req.query.id;
+        const userEmail = req.query.userEmail;
 
         const filter = { _id: ObjectId(userId) };
         const options = { upsert: true };
@@ -186,7 +196,23 @@ const run = async () => {
           updateDoc,
           options
         );
-        res.send(result);
+
+        if (result.modifiedCount) {
+          const query = { sellerEmail: userEmail };
+          const options = { upsert: true };
+
+          const updateDoc = {
+            $set: {
+              verifyUser: true,
+            },
+          };
+          const result = await productsCollection.updateMany(
+            query,
+            updateDoc,
+            options
+          );
+          res.send(result);
+        }
       }
     );
 
@@ -197,6 +223,7 @@ const run = async () => {
       isAdmin,
       async (req, res) => {
         const userId = req.query.id;
+        const userEmail = req.query.userEmail;
 
         const filter = { _id: ObjectId(userId) };
         const options = { upsert: true };
@@ -211,7 +238,22 @@ const run = async () => {
           updateDoc,
           options
         );
-        res.send(result);
+        if (result.modifiedCount) {
+          const query = { sellerEmail: userEmail };
+          const options = { upsert: true };
+
+          const updateDoc = {
+            $set: {
+              verifyUser: false,
+            },
+          };
+          const result = await productsCollection.updateMany(
+            query,
+            updateDoc,
+            options
+          );
+          res.send(result);
+        }
       }
     );
 
@@ -431,20 +473,23 @@ const run = async () => {
     );
 
     app.get("/add-advertise", async (req, res) => {
-      const query = { isBoosted: true, isBooked: false };
+      const query = { isBoosted: true };
       const result = await productsCollection.find(query).toArray();
+
       res.send(result);
     });
 
-    app.put("/add-booking", jwtVerify, userVerify, async (req, res) => {
+    app.post("/add-booking", jwtVerify, userVerify, async (req, res) => {
       const bookedId = req.query.id;
       const userEmail = req.query.email;
+      const bookingProduct = req.body;
 
       const filter = { _id: ObjectId(bookedId) };
       const options = { upsert: true };
       const updateDoc = {
         $set: {
           isBooked: true,
+          isBoosted: false,
           customerEmail: userEmail,
         },
       };
@@ -453,6 +498,10 @@ const run = async () => {
         updateDoc,
         options
       );
+
+      const booking = await bookingCollection.insertOne(bookingProduct);
+      const cartItemsId = { cartId: bookedId };
+      const cartRemove = await cartItemsCollection.deleteOne(cartItemsId);
       res.send(result);
     });
 
@@ -472,6 +521,8 @@ const run = async () => {
         updateDoc,
         options
       );
+      const query = { bookingId: bookedId };
+      const bookingDelete = await bookingCollection.deleteOne(query);
       res.send(result);
     });
 
@@ -479,15 +530,15 @@ const run = async () => {
       const userEmail = req.query.email;
 
       const query = { customerEmail: userEmail };
-      const result = await productsCollection.find(query).toArray();
+      const result = await bookingCollection.find(query).toArray();
       res.send(result);
     });
 
     app.get("/payment-product/:id", async (req, res) => {
       const productId = req.params.id;
 
-      const query = { _id: ObjectId(productId) };
-      const result = await productsCollection.findOne(query);
+      const query = { bookingId: productId };
+      const result = await bookingCollection.findOne(query);
       res.send(result);
     });
 
@@ -516,6 +567,7 @@ const run = async () => {
       const payments = req.body;
 
       const id = payments.bookingId;
+      const paymentID = payments.transactionId;
       const query = { _id: ObjectId(id) };
 
       const result = await paymentCollection.insertOne(payments);
@@ -526,9 +578,10 @@ const run = async () => {
         const updateDoc = {
           $set: {
             paymentStatus: "PAID",
+            transactionId: paymentID,
           },
         };
-        const bookingProduct = await productsCollection.updateOne(
+        const bookingProduct = await productsCollection.updateMany(
           query,
           updateDoc,
           options
